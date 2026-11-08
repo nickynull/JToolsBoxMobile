@@ -169,7 +169,7 @@ jobs:
 ## 5. 触发与取包
 
 - 手动：仓库 `Actions → android-release → Run workflow`。
-- 自动：推送 `v*` 形式的 tag，例如 `v0.1.1`。发版前记得同步 `package.json` 与 `src-tauri/tauri.conf.json` 的 `version`。
+- 自动：推送 `v*` 形式的 tag，例如 `v1.1.0`。发版前同步 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`、`src/core/version.ts` 的版本号，以及 `README.md` 里的当前版本与 APK 文件名；tag 必须打在**已包含工作流文件**的提交上，否则推送 tag 不会创建运行。
 - 构建结束后在该次 workflow 页面下载 artifact。下载后建议按 [本地发布指南](./local-release.md) 的签名校验步骤确认证书指纹与上一版一致，再分发。
 
 ### 自动附加到 GitHub Release（可选）

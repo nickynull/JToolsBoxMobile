@@ -4,7 +4,7 @@
 
 ## 项目速览
 
-本地优先的移动工具箱：Tauri 2 + Vue 3 + TypeScript + Element Plus，v1.0.0，同一套前端跑 Android / iOS / 桌面，无服务端。已完成基础设施（路由 / 壳层 / 设置 / 存储 / 备份）与「物品到期提醒」模块。应用标识 `com.jimmy.jtoolsbox.mobile`，产品名 `JToolsBox`。
+本地优先的移动工具箱：Tauri 2 + Vue 3 + TypeScript + Element Plus，v1.1.0，同一套前端跑 Android / iOS / 桌面，无服务端。已完成基础设施（路由 / 壳层 / 设置 / 存储 / 备份）与「物品到期提醒」模块。应用标识 `com.jimmy.jtoolsbox.mobile`，产品名 `JToolsBox`。
 
 ## 最小必要约定
 

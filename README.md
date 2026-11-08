@@ -7,11 +7,11 @@
 
 ## 下载
 
-Android 安装包发布在 [**GitHub Releases**](https://github.com/nickynull/JToolsBoxMobile/releases)，当前版本 **v1.0.0**：
+Android 安装包发布在 [**GitHub Releases**](https://github.com/nickynull/JToolsBoxMobile/releases)，当前版本 **v1.1.0**：
 
 | 文件 | 说明 |
 | --- | --- |
-| `JToolsBox-Mobile-1.0.0-arm64.apk` | arm64-v8a 设备，Android 7.0（API 24）及以上 |
+| `JToolsBox-Mobile-1.1.0-arm64.apk` | arm64-v8a 设备，Android 7.0（API 24）及以上 |
 | `*.apk.sha256` | 校验值，`sha256sum -c <文件名>` 可验证完整性 |
 
 > 仅归档 arm64 包；其它架构、桌面端与 iOS 需从源码构建。本仓库不跟踪构建产物（`release/` 已在 `.gitignore` 中忽略）。
