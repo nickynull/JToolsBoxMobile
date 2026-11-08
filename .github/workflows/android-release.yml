@@ -57,6 +57,11 @@ jobs:
 
       - name: 准备 Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 默认值是 "tools platform-tools"，但 legacy tools 包已从 SDK 仓库移除，
+          # 保留默认会报 "Failed to find package 'tools'" 并整步失败
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
 
       - name: 安装 SDK 组件
         run: |
