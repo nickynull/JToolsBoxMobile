@@ -124,7 +124,8 @@ jobs:
 
       - name: Install Android SDK components
         run: |
-          sdkmanager --install "platforms;android-37" "build-tools;37.0.0" "ndk;27.0.12077973" "platform-tools"
+          # 平台包带小版本号：android-37.0，写成 android-37 会 "Failed to find package"
+          sdkmanager --install "platforms;android-37.0" "build-tools;37.0.0" "ndk;27.0.12077973" "platform-tools"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> $GITHUB_ENV
 
       # 仓库里的 Gradle Wrapper 指向国内镜像，境外 runner 改回官方发行版
@@ -158,6 +159,7 @@ jobs:
 
 - 签名相关值全部通过 `env` 传入，不直接把 `${{ secrets.* }}` 拼进 shell 命令，避免特殊字符导致命令注入或解析错误。
 - 密钥库还原到 `$RUNNER_TEMP`，`storeFile` 用绝对路径，Gradle 可正确解析。
+- `android-actions/setup-android@v3` 的 `packages` 默认值是 `tools platform-tools`，而 legacy `tools` 包已从 SDK 仓库移除，保留默认会以 `Failed to find package 'tools'` 失败。必须显式传 `packages: 'platform-tools'`。
 - `tauri android build` 会自动重建被忽略的生成文件（`tauri.settings.gradle`、`app/tauri.properties` 等，含当前机器的 cargo registry 路径），**不要**把它们提交进仓库，也**不要**在工作流里跑 `android:init`。
 - 官方新文档示例已升级到 `checkout@v7` / `setup-node@v6`；上面的 v4 系列同样可用，按你仓库的策略选择。
 - 如果 CI 卡在 Maven 依赖下载，把 `gen/android/build.gradle.kts` 的仓库顺序改成官方源优先；本机加速请用用户级 Gradle 初始化脚本，不要为 CI 改坏本机网络，见 [更换机器发布指南](./new-machine-release.md#6-平台差异)。

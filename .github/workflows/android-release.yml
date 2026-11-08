@@ -17,7 +17,8 @@ concurrency:
 
 env:
   NDK_VERSION: 27.0.12077973
-  SDK_PLATFORM: '37'
+  # 新版 SDK 平台包带小版本号：android-37.0 而非 android-37（后者在仓库中不存在）
+  SDK_PLATFORM: '37.0'
   BUILD_TOOLS: 37.0.0
 
 jobs:
@@ -66,10 +67,8 @@ jobs:
       - name: 安装 SDK 组件
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platform-tools" "build-tools;${BUILD_TOOLS}" "ndk;${NDK_VERSION}"
-          # android-37 若尚未进入 stable 渠道，回退到预览渠道
-          sdkmanager --install "platforms;android-${SDK_PLATFORM}" \
-            || sdkmanager --install --channel=3 "platforms;android-${SDK_PLATFORM}"
+          sdkmanager --install "platform-tools" "build-tools;${BUILD_TOOLS}" \
+            "platforms;android-${SDK_PLATFORM}" "ndk;${NDK_VERSION}"
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           echo "NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
