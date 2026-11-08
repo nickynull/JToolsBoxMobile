@@ -2,6 +2,17 @@
 
 本地优先的移动工具箱：**Tauri 2 + Vue 3 + TypeScript + Element Plus**，同一套前端代码运行在 Android、iOS 和桌面端。所有数据保存在设备本地，不需要任何服务端。
 
+## 下载
+
+Android 安装包发布在 [**GitHub Releases**](https://github.com/nickynull/JToolsBoxMobile/releases)，当前版本 **v1.0.0**：
+
+| 文件 | 说明 |
+| --- | --- |
+| `JToolsBox-Mobile-1.0.0-arm64.apk` | arm64-v8a 设备，Android 7.0（API 24）及以上 |
+| `*.apk.sha256` | 校验值，`sha256sum -c <文件名>` 可验证完整性 |
+
+> 仅归档 arm64 包；其它架构、桌面端与 iOS 需从源码构建。本仓库不跟踪构建产物（`release/` 已在 `.gitignore` 中忽略）。
+
 ## 功能
 
 - **模块化工具箱**：每个子功能是独立模块，拥有自己的数据文件，互不影响；首页网格进入，模块内右上角可一键切换到其它功能。
@@ -142,7 +153,7 @@ adb devices        # 确认设备已授权
 npm run android:dev
 ```
 
-产物固定落在 `src-tauri/gen/android/app/build/outputs/apk/universal/{debug,release}/`。universal debug 包含 4 个 ABI 与调试符号，体积约 480 MB；release 包明显更小。已归档的 arm64 包在 `release/`。
+产物固定落在 `src-tauri/gen/android/app/build/outputs/apk/universal/{debug,release}/`。universal debug 包含 4 个 ABI 与调试符号，体积约 480 MB；release 包明显更小。已发布的 arm64 包见 [GitHub Releases](https://github.com/nickynull/JToolsBoxMobile/releases)，本地归档目录 `release/` 不入库。
 
 Release 签名：
 

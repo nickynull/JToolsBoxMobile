@@ -11,12 +11,12 @@
 
 | 项 | 要求 |
 | --- | --- |
-| 仓库 | 项目已完成 `git init` 并推送到 GitHub（当前仓库尚未初始化） |
+| 仓库 | 项目已 `git init` 并推送到 <https://github.com/nickynull/JToolsBoxMobile>（默认分支 `main`） |
 | 权限 | 有仓库 Settings → Secrets 的配置权限；工作流需要 `contents: write` 才能创建 Release |
 | 签名材料 | 能访问与历史版本**同一个**签名密钥库，否则用户无法覆盖升级 |
 | 忽略规则 | 确认 `src-tauri/gen/android/keystore.properties`、密钥库文件都未被跟踪（前者已被忽略） |
 
-发布前先确认 `.gitignore` 是否会误纳入大体积产物：目前 `release/` 与 `.workbuddy/` **没有**被忽略，按需决定是否在 CI 产物之外另行归档。
+发布前先确认 `.gitignore` 是否会误纳入大体积产物：`release/`、`*.apk`、`*.aab`、`*.jks` 与各 `keystore.properties` 已忽略，安装包只作为 Release 附件分发；`.workbuddy/`（AI 协作笔记与工作日志）仍会提交，属有意为之。
 
 ---
 
