@@ -1,0 +1,40 @@
+{
+  "name": "jtoolsbox-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "android:init": "tauri android init",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build",
+    "android:build:debug": "tauri android build --apk --debug",
+    "ios:init": "tauri ios init",
+    "ios:dev": "tauri ios dev",
+    "ios:build": "tauri ios build"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-fs": "^2.7.1",
+    "@tauri-apps/plugin-notification": "^2.8.0",
+    "@tauri-apps/plugin-opener": "^2",
+    "element-plus": "^2.14.8",
+    "fflate": "^0.8.3",
+    "vue": "^3.5.13",
+    "vue-router": "^5.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "vue-tsc": "^3.3.5"
+  }
+}

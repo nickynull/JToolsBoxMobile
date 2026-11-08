@@ -1,0 +1,6 @@
+# 本机 git 全局配置了 HTTP 代理（http.proxy=127.0.0.1:7897），cargo 会继承该设置。
+# 代理未运行时会导致 crates.io 连接失败，这里显式关闭；直连可正常拉取。
+# 如需走代理，把 proxy 改为你的代理地址即可。
+[http]
+proxy = ""
+timeout = 30
