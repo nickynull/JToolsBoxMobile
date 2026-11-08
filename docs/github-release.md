@@ -216,7 +216,7 @@ jobs:
 | 构建成功但 APK 未签名 | `keystore.properties` 未生成或键名不对；Gradle 是「有条件签名」，缺文件不会报错。检查注入步骤是否执行、四个键是否齐全 |
 | `base64 -d` 失败 | Secret 里混入了换行或空格；重新生成并粘贴纯 Base64 文本 |
 | 找不到 NDK / SDK platform | 确认 `sdkmanager --install` 执行成功、`NDK_HOME` 指向安装的版本 |
-| Gradle 下载超时 | 国内镜像在境外 runner 上不可达，检查替换 `distributionUrl` 的步骤 |
+| Gradle 下载超时 / 504 | `services.gradle.org` 与 `downloads.gradle.org` 现已重定向到 GitHub Releases，实测偶发 504。工作流会依次探测腾讯云镜像 → services → downloads，取第一个返回 200 的源写回 `distributionUrl`，并把 `networkTimeout` 提到 120 s（wrapper 默认 10 s 且不重试） |
 | 报找不到某个 Tauri 插件的 Android 工程 | 生成文件被误提交；从仓库移除 `tauri.settings.gradle` 等生成文件，让 CLI 重建 |
 | Rust 依赖拉取失败 | 检查 `src-tauri/.cargo/config.toml` 的代理设置；CI 通常无需代理 |
 | `Resource not accessible by integration` | `GITHUB_TOKEN` 权限不足，在仓库 Settings → Actions → Workflow permissions 开启读写，或在 job 上声明 `contents: write` |

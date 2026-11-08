@@ -72,14 +72,33 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
           echo "NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
-      - name: Gradle 换回官方发行版
+      - name: 选择可用的 Gradle 发行源
         run: |
           WRAPPER=src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
-          # 仓库里的 wrapper 指向腾讯云镜像，境外 runner 不可达
-          sed -i 's|mirrors.cloud.tencent.com/gradle/|services.gradle.org/distributions/|' "$WRAPPER"
-          # wrapper 默认网络超时仅 10s 且不重试，200 MB 发行包极易超时
-          grep -q '^networkTimeout=' "$WRAPPER" || echo 'networkTimeout=120000' >> "$WRAPPER"
-          cat "$WRAPPER"
+          VERSION=$(sed -nE 's/.*gradle-([0-9.]+)-bin\.zip.*/\1/p' "$WRAPPER" | head -1)
+          echo "Gradle 版本: $VERSION"
+          # services/downloads.gradle.org 现已重定向到 GitHub Releases，偶发 504；腾讯云镜像反而稳定
+          CHOSEN=""
+          for BASE in \
+            "https://mirrors.cloud.tencent.com/gradle" \
+            "https://services.gradle.org/distributions" \
+            "https://downloads.gradle.org/distributions"; do
+            URL="$BASE/gradle-${VERSION}-bin.zip"
+            CODE=$(curl -sIL -o /dev/null -w '%{http_code}' --max-time 25 "$URL" || echo 000)
+            echo "  探测 $CODE  $URL"
+            if [ "$CODE" = "200" ]; then CHOSEN="$URL"; break; fi
+          done
+          if [ -z "$CHOSEN" ]; then
+            echo "::error::所有 Gradle 发行源均不可用"
+            exit 1
+          fi
+          ESC="${CHOSEN//:/\\:}"
+          grep -v '^distributionUrl=' "$WRAPPER" > "$WRAPPER.tmp"
+          printf 'distributionUrl=%s\n' "$ESC" >> "$WRAPPER.tmp"
+          # wrapper 默认网络超时仅 10s 且不重试
+          grep -q '^networkTimeout=' "$WRAPPER.tmp" || echo 'networkTimeout=120000' >> "$WRAPPER.tmp"
+          mv "$WRAPPER.tmp" "$WRAPPER"
+          echo "已选用: $CHOSEN"
 
       - name: 安装前端依赖
         run: npm ci
@@ -107,7 +126,21 @@ jobs:
           echo "已注入签名配置（密钥库仅存在于 runner 临时目录）"
 
       - name: 构建 APK
-        run: npx tauri android build --apk --target aarch64
+        run: |
+          # 依赖下载偶发失败（Gradle 发行包 / Maven / crates.io），带退避重试
+          for attempt in 1 2 3; do
+            echo "::group::构建尝试 $attempt / 3"
+            if npx tauri android build --apk --target aarch64; then
+              echo "::endgroup::"
+              echo "构建成功"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::第 $attempt 次构建失败，30 秒后重试"
+            sleep 30
+          done
+          echo "::error::构建连续 3 次失败"
+          exit 1
 
       - name: 整理产物
         id: meta
