@@ -11,7 +11,7 @@ export const expiryModule: ToolModule = {
   icon: AlarmClock,
   accent: "#E6A23C",
   entry: "expiry-list",
-  version: 1,
+  version: 2,
   preload: loadExpiry,
   badge: () => {
     const count = alertCount.value;
@@ -28,13 +28,23 @@ export const expiryModule: ToolModule = {
       path: "/m/expiry/new",
       name: "expiry-new",
       component: ExpiryEditView,
-      meta: { moduleId: "expiry", title: "新增物品", back: "expiry-list" },
+      meta: {
+        moduleId: "expiry",
+        title: "新增物品",
+        back: "expiry-list",
+        layout: "fill",
+      },
     },
     {
       path: "/m/expiry/:id/edit",
       name: "expiry-edit",
       component: ExpiryEditView,
-      meta: { moduleId: "expiry", title: "编辑物品", back: "expiry-list" },
+      meta: {
+        moduleId: "expiry",
+        title: "编辑物品",
+        back: "expiry-list",
+        layout: "fill",
+      },
     },
   ],
 };

@@ -42,6 +42,20 @@ export function addDays(value: string, days: number): string {
   return toISODate(date);
 }
 
+/** 加整月，月末自动收敛（1 月 31 日 + 1 月 = 2 月 28/29 日）。 */
+export function addMonths(value: string, months: number): string {
+  const date = parseISO(value) ?? new Date();
+  const day = date.getDate();
+  const target = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const lastDay = new Date(
+    target.getFullYear(),
+    target.getMonth() + 1,
+    0,
+  ).getDate();
+  target.setDate(Math.min(day, lastDay));
+  return toISODate(target);
+}
+
 /** 相对描述：已过期 3 天 / 今天到期 / 还有 12 天 */
 export function describeRemaining(value: string): string {
   const days = daysUntil(value);

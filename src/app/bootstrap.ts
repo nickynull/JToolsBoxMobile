@@ -1,4 +1,5 @@
 import type { Router } from "vue-router";
+import { installBackHandler } from "../core/back";
 import { getModule, getModules, registerModule } from "../core/module/registry";
 import { initSettings, settings } from "../core/settings";
 import { expiryModule } from "../modules/expiry/manifest";
@@ -46,6 +47,7 @@ export async function bootstrap(): Promise<Router> {
   });
 
   void startReminderWatcher();
+  void installBackHandler(router);
 
   return router;
 }

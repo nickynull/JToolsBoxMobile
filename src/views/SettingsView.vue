@@ -8,7 +8,7 @@ import { storage } from "../core/storage/driver";
 import {
   applyBackup,
   exportBackup,
-  moduleDataKey,
+  moduleDirKey,
   readBackup,
   type BackupPayload,
   type ImportMode,
@@ -161,7 +161,13 @@ async function clearAll() {
     await ElMessageBox.confirm(
       "将删除所有模块的数据，应用设置会保留。建议先导出备份。",
       "清空数据",
-      { type: "warning", confirmButtonText: "清空", cancelButtonText: "取消" },
+      {
+        type: "warning",
+        confirmButtonText: "清空",
+        cancelButtonText: "取消",
+        // MessageBox 默认不吃 ESC（closeOnPressEscape: false），系统返回键要靠它关浮层
+        closeOnPressEscape: true,
+      },
     );
   } catch {
     return;
@@ -170,7 +176,8 @@ async function clearAll() {
   busy.value = true;
   try {
     for (const module of modules.value) {
-      await storage.remove(moduleDataKey(module.id));
+      // 整个模块目录一起清（data.json + 图片等附属文件）
+      await storage.clearDir(moduleDirKey(module.id));
       await module.preload?.();
     }
     ElMessage.success("数据已清空");
@@ -188,7 +195,7 @@ async function clearAll() {
       <h3>外观</h3>
       <div class="row">
         <span class="label">主题</span>
-        <el-radio-group v-model="theme" size="small">
+        <el-radio-group v-model="theme">
           <el-radio-button value="light">浅色</el-radio-button>
           <el-radio-button value="dark">深色</el-radio-button>
           <el-radio-button value="system">跟随系统</el-radio-button>
@@ -200,7 +207,7 @@ async function clearAll() {
       <h3>启动</h3>
       <div class="row">
         <span class="label">打开软件时</span>
-        <el-select v-model="startup" size="small" class="select">
+        <el-select v-model="startup" class="select">
           <el-option
             v-for="option in startupOptions"
             :key="option.value"
@@ -231,7 +238,6 @@ async function clearAll() {
         <el-time-select
           v-model="notifyTime"
           class="select"
-          size="small"
           start="06:00"
           step="00:30"
           end="23:30"
@@ -260,7 +266,7 @@ async function clearAll() {
           <span class="label">导出全部</span>
           <small>所有模块数据 + 应用设置</small>
         </div>
-        <el-button size="small" :loading="busy" @click="exportAll">
+        <el-button :loading="busy" @click="exportAll">
           导出
         </el-button>
       </div>
@@ -270,7 +276,7 @@ async function clearAll() {
           <small>只备份单个功能的数据</small>
         </div>
         <el-dropdown trigger="click" @command="exportOne">
-          <el-button size="small" :loading="busy">选择模块</el-button>
+          <el-button :loading="busy">选择模块</el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item
@@ -289,7 +295,7 @@ async function clearAll() {
           <span class="label">导入备份</span>
           <small>可选择覆盖或与现有数据合并</small>
         </div>
-        <el-button size="small" :loading="busy" @click="startImport">
+        <el-button :loading="busy" @click="startImport">
           导入
         </el-button>
       </div>
@@ -298,7 +304,7 @@ async function clearAll() {
           <span class="label">清空数据</span>
           <small>只清除模块数据，保留设置</small>
         </div>
-        <el-button size="small" type="danger" plain @click="clearAll">
+        <el-button type="danger" plain @click="clearAll">
           清空
         </el-button>
       </div>
@@ -395,7 +401,8 @@ async function clearAll() {
 }
 
 .select {
-  width: 148px;
+  width: 158px;
+  flex: none;
 }
 
 .hint {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ArrowLeft, Grid, Setting, Box } from "@element-plus/icons-vue";
 import { getModule } from "../core/module/registry";
@@ -14,6 +14,55 @@ const currentModule = computed(() => getModule(moduleId.value));
 const title = computed(() => (route.meta.title as string) ?? "JToolsBox");
 const backTarget = computed(() => route.meta.back as string | undefined);
 const isSettings = computed(() => route.name === "settings");
+/**
+ * 满高布局：路由声明 `meta.layout = "fill"` 后，`.content` 不再滚动、也不留内边距，
+ * 整块高度交给页面自己切分（常见做法：上部内容区 `flex:1` + `overflow-y:auto`，
+ * 下部吸底操作栏、不随内容滚动）。
+ */
+const fillLayout = computed(() => route.meta.layout === "fill");
+
+/**
+ * 记住最后一次停留的工具页（含模块内页与首页）。
+ * 底栏是「页签」语义：从设置切回工具时应原地返回，而不是重置到首页。
+ */
+const lastToolsPath = ref("");
+/** 同一次记录里的工具模块 id，用于设置页也能显示「回到哪个工具」 */
+const lastModuleId = ref<string | undefined>();
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (!isSettings.value) {
+      lastToolsPath.value = route.fullPath;
+      lastModuleId.value = moduleId.value;
+    }
+  },
+  { immediate: true },
+);
+
+/**
+ * 工具页签指向的模块：当前模块；在设置页则用上次离开时所在的模块。
+ * 文案与图标都从它派生，保证两者始终同步。
+ */
+const toolsTabModule = computed(() =>
+  getModule(isSettings.value ? lastModuleId.value : moduleId.value),
+);
+
+const toolsTabLabel = computed(() => toolsTabModule.value?.name ?? "工具");
+/** 无模块归属（首页）时退回通用图标 */
+const toolsTabIcon = computed(() => toolsTabModule.value?.icon ?? Box);
+
+function openTools() {
+  // 在设置页：回到离开工具页签时的那一页
+  if (isSettings.value) {
+    void router.push(lastToolsPath.value || "/");
+    return;
+  }
+  // 已在工具页签内（深一层）：点当前页签回到页签根
+  if (route.name !== "home") {
+    void router.push({ name: "home" });
+  }
+}
 
 function goBack() {
   if (backTarget.value) {
@@ -51,7 +100,7 @@ function goBack() {
       </button>
     </header>
 
-    <main class="content">
+    <main class="content" :class="{ fill: fillLayout }">
       <slot />
     </main>
 
@@ -60,10 +109,10 @@ function goBack() {
         class="tab"
         type="button"
         :class="{ active: !isSettings }"
-        @click="router.push({ name: 'home' })"
+        @click="openTools"
       >
-        <el-icon :size="20"><Box /></el-icon>
-        <span>工具</span>
+        <el-icon :size="20"><component :is="toolsTabIcon" /></el-icon>
+        <span class="tab-label">{{ toolsTabLabel }}</span>
       </button>
       <button
         class="tab"
@@ -152,6 +201,14 @@ function goBack() {
   -webkit-overflow-scrolling: touch;
 }
 
+/* 满高布局：滚动与内边距都交给页面，壳层只负责给出高度 */
+.content.fill {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
 .tabbar {
   display: flex;
   gap: 4px;
@@ -183,5 +240,13 @@ function goBack() {
 .tab.active {
   color: var(--el-color-primary);
   background: var(--el-color-primary-light-9);
+}
+
+/* 工具页签显示模块名，名字过长时省略而不是撑破页签 */
+.tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

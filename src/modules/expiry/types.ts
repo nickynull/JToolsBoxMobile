@@ -1,20 +1,82 @@
-export type ExpiryCategory =
-  | "food"
-  | "medicine"
-  | "cosmetic"
-  | "document"
-  | "other";
+/** 分类定义。内置分类的 id 会写进数据，不可随意改名（旧备份靠它回显）。 */
+export interface CategoryDef {
+  id: string;
+  label: string;
+  color: string;
+}
+
+/** 内置分类：id 只用于数据兼容，界面文案走 label。 */
+export const BUILTIN_CATEGORIES: CategoryDef[] = [
+  { id: "food", label: "食品", color: "#E6A23C" },
+  { id: "medicine", label: "药品", color: "#F56C6C" },
+  { id: "cosmetic", label: "化妆品", color: "#D4537E" },
+  { id: "document", label: "证件", color: "#409EFF" },
+  { id: "other", label: "其他", color: "#909399" },
+];
+
+/** 自定义分类，随模块数据一起持久化在 data.json 的 categories 里。 */
+export interface CustomCategory extends CategoryDef {
+  createdAt: string;
+}
+
+/** 删除自定义分类时的兜底分类。 */
+export const DEFAULT_CATEGORY = "other";
+
+/** 自定义分类取色顺序，按未占用的颜色依次分配。 */
+export const CUSTOM_CATEGORY_COLORS = [
+  "#67C23A",
+  "#9254DE",
+  "#13C2C2",
+  "#EB2F96",
+  "#FA8C16",
+  "#2F54EB",
+  "#12B76A",
+  "#F759AB",
+];
+
+/** 有效期单位：天 / 月 / 年 */
+export type ShelfLifeUnit = "day" | "month" | "year";
+
+/** 单件物品最多几张图片 */
+export const MAX_IMAGES = 6;
+
+/**
+ * 物品图片。图片本体是模块目录下的真实文件（`images/<id>.jpg`），
+ * `path` 是相对模块数据目录的路径，`data.json` 只存路径不存二进制。
+ */
+export interface ExpiryImage {
+  id: string;
+  /** 相对模块目录的路径，如 `images/img_abc.jpg` */
+  path: string;
+  addedAt: string;
+  /** @deprecated v3 的内联 base64，加载时自动迁移成文件后清空 */
+  data?: string;
+}
+
+export const SHELF_LIFE_UNITS: { value: ShelfLifeUnit; label: string }[] = [
+  { value: "day", label: "天" },
+  { value: "month", label: "月" },
+  { value: "year", label: "年" },
+];
 
 export interface ExpiryItem {
   id: string;
   name: string;
-  category: ExpiryCategory;
-  /** 到期日期，YYYY-MM-DD */
+  /** 分类 id，指向内置分类或自定义分类 */
+  category: string;
+  /** 生产日期，YYYY-MM-DD，选填 */
+  productionDate: string;
+  /** 有效期数值，0 表示未填 */
+  shelfLife: number;
+  shelfLifeUnit: ShelfLifeUnit;
+  /** 到期日期，YYYY-MM-DD（由生产日期 + 有效期算出，或手动指定） */
   expireAt: string;
   /** 提前多少天提醒，如 [30, 7, 1, 0] */
   remindDays: number[];
   quantity: number;
   note: string;
+  /** 最多 MAX_IMAGES 张，图片文件存在模块目录的 images/ 下，这里只存相对路径 */
+  images: ExpiryImage[];
   /** 已推送过的提醒标记，形如 `2026-11-08:7`，避免同一天重复提醒 */
   notifiedKeys: string[];
   archived: boolean;
@@ -25,29 +87,14 @@ export interface ExpiryItem {
 export interface ExpiryData {
   version: number;
   items: ExpiryItem[];
+  categories: CustomCategory[];
 }
 
-export const CATEGORY_LABELS: Record<ExpiryCategory, string> = {
-  food: "食品",
-  medicine: "药品",
-  cosmetic: "化妆品",
-  document: "证件",
-  other: "其他",
-};
-
-export const CATEGORY_COLORS: Record<ExpiryCategory, string> = {
-  food: "#E6A23C",
-  medicine: "#F56C6C",
-  cosmetic: "#D4537E",
-  document: "#409EFF",
-  other: "#909399",
-};
-
-export const CATEGORY_OPTIONS = (
-  Object.keys(CATEGORY_LABELS) as ExpiryCategory[]
-).map((value) => ({ value, label: CATEGORY_LABELS[value] }));
-
 export const REMIND_DAY_OPTIONS = [30, 15, 7, 3, 1, 0];
+
+export function remindDayLabel(day: number): string {
+  return day === 0 ? "当天" : `${day} 天前`;
+}
 
 export type ExpiryStatus = "expired" | "soon" | "month" | "normal";
 

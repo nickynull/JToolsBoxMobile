@@ -1,4 +1,4 @@
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from "fflate";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { isTauri } from "../runtime";
@@ -25,10 +25,16 @@ export interface BackupPayload {
 
 export type ImportMode = "replace" | "merge";
 
-export const moduleDataKey = (id: string) => `modules/${id}/data.json`;
+/** 模块数据目录：`data.json` 与图片等附属文件都放在它下面，备份按整包处理 */
+export const moduleDirKey = (id: string) => `modules/${id}`;
+
+export const moduleDataKey = (id: string) => `${moduleDirKey(id)}/data.json`;
 
 const MANIFEST_KEY = "manifest.json";
 const SETTINGS_KEY = "settings.json";
+
+/** 空模块也要有 data.json，否则导入后模块会读不到数据 */
+const EMPTY_MODULE_DATA = JSON.stringify({ version: 1, items: [] });
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -91,14 +97,41 @@ async function saveBytes(name: string, bytes: Uint8Array): Promise<boolean> {
   return true;
 }
 
+/**
+ * 收集一个模块目录下的全部文件（`data.json` + 图片等附属文件）。
+ *
+ * 备份不能只打包 `data.json`：物品图片是模块目录里的真实文件，
+ * 只导出 JSON 会得到一堆指向不存在文件的路径。
+ */
+async function collectModuleFiles(id: string): Promise<Record<string, Uint8Array>> {
+  const out: Record<string, Uint8Array> = {};
+  for (const key of await storage.list(moduleDirKey(id))) {
+    const bytes = await storage.readBytes(key);
+    if (bytes) {
+      out[key] = bytes;
+    }
+  }
+  const dataKey = moduleDataKey(id);
+  if (!out[dataKey]) {
+    out[dataKey] = strToU8(EMPTY_MODULE_DATA);
+  }
+  return out;
+}
+
+/** 图片本来就是压缩格式，再 deflate 只是白白耗电 */
+function isPacked(key: string): boolean {
+  return /\.(jpe?g|png|webp|gif|heic)$/i.test(key);
+}
+
 export async function exportBackup(scope: "all" | string[]): Promise<boolean> {
   const all = scope === "all";
   const ids = all ? getModules().map((item) => item.id) : scope;
 
-  const files: Record<string, Uint8Array> = {};
+  const files: Zippable = {};
   for (const id of ids) {
-    const raw = await storage.read(moduleDataKey(id));
-    files[moduleDataKey(id)] = strToU8(raw ?? JSON.stringify({ version: 1, items: [] }));
+    for (const [key, bytes] of Object.entries(await collectModuleFiles(id))) {
+      files[key] = isPacked(key) ? [bytes, { level: 0 }] : bytes;
+    }
   }
 
   if (all) {
@@ -173,21 +206,39 @@ export async function readBackup(): Promise<BackupPayload | null> {
   return { fileName: picked.name, manifest, files };
 }
 
+/** 模块内的文件 key：`modules/<id>/<relative>` */
+const MODULE_FILE = /^modules\/([^/]+)\/(.+)$/;
+
 export async function applyBackup(
   payload: BackupPayload,
   mode: ImportMode,
 ): Promise<{ modules: string[]; settingsApplied: boolean }> {
-  const applied: string[] = [];
+  const appliedModules = new Set<string>();
   let settingsApplied = false;
+
+  const moduleIds = new Set<string>();
+  for (const key of Object.keys(payload.files)) {
+    const match = MODULE_FILE.exec(key);
+    if (match) {
+      moduleIds.add(match[1]);
+    }
+  }
+
+  // 覆盖模式等同于「整目录替换」：先清空，避免旧图片变成没人引用的孤儿文件。
+  // 只清备份里出现的模块，其他模块保持原样。
+  if (mode === "replace") {
+    for (const id of moduleIds) {
+      await storage.clearDir(moduleDirKey(id));
+    }
+  }
 
   for (const [key, bytes] of Object.entries(payload.files)) {
     if (key === MANIFEST_KEY) {
       continue;
     }
 
-    const incoming = strFromU8(bytes);
-
     if (key === SETTINGS_KEY) {
+      const incoming = strFromU8(bytes);
       const parsed = JSON.parse(incoming) as Record<string, unknown>;
       const current = settings as unknown as Record<string, unknown>;
       const next =
@@ -205,17 +256,28 @@ export async function applyBackup(
       continue;
     }
 
-    if (!key.startsWith("modules/") || !key.endsWith("/data.json")) {
+    const match = MODULE_FILE.exec(key);
+    if (!match) {
+      continue;
+    }
+    const moduleId = match[1];
+    const relative = match[2];
+
+    if (relative !== "data.json") {
+      // 图片等附属文件：按字节还原（覆盖模式下目录已被清空，合并模式下新文件名唯一）
+      await storage.writeBytes(key, bytes);
+      appliedModules.add(moduleId);
       continue;
     }
 
+    const incoming = strFromU8(bytes);
     if (mode === "merge") {
       const existing = await storage.read(key);
       if (existing) {
         try {
           const merged = mergeValue(JSON.parse(existing), JSON.parse(incoming));
           await storage.write(key, JSON.stringify(merged, null, 2));
-          applied.push(key);
+          appliedModules.add(moduleId);
           continue;
         } catch {
           // 解析失败时退化为直接覆盖
@@ -224,7 +286,7 @@ export async function applyBackup(
     }
 
     await storage.write(key, incoming);
-    applied.push(key);
+    appliedModules.add(moduleId);
   }
 
   // 让各模块重新读取刚写入的数据
@@ -232,10 +294,5 @@ export async function applyBackup(
     await module.preload?.();
   }
 
-  return {
-    modules: applied
-      .map((key) => key.split("/")[1])
-      .filter((id): id is string => typeof id === "string"),
-    settingsApplied,
-  };
+  return { modules: [...appliedModules], settingsApplied };
 }

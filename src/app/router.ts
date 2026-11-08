@@ -10,6 +10,11 @@ declare module "vue-router" {
     moduleId?: string;
     /** 返回按钮的目标路由 name */
     back?: string;
+    /**
+     * 页面布局。默认（不填）是壳层滚动整页；
+     * `"fill"` 表示壳层交出高度且自身不滚动，由页面自行分区（如上部滚动 + 下部固定操作栏）。
+     */
+    layout?: "fill";
   }
 }
 

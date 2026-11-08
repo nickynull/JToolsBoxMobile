@@ -19,7 +19,7 @@ Android 安装包发布在 [**GitHub Releases**](https://github.com/nickynull/JT
 ## 功能
 
 - **模块化工具箱**：每个子功能是独立模块，拥有自己的数据文件，互不影响；首页网格进入，模块内右上角可一键切换到其它功能。
-- **物品到期提醒**（首个模块）：记录食品、药品、化妆品、证件的有效期，按物品自定义提前提醒天数，分组展示「已过期 / 7 天内 / 30 天内 / 正常」。
+- **物品到期提醒**（首个模块）：记录食品、药品、化妆品、证件的有效期，分组展示「已过期 / 7 天内 / 30 天内 / 正常」；分类可自定义（下拉筛选旁一键添加），提醒档位下拉多选；填写生产日期 + 有效期（天/月/年）后到期日自动推算，也可手动指定。每件物品可拍照 / 从相册选图，最多 6 张；列表支持多选批量删除（删除前二次确认）。
 - **关掉应用也会响**：Android / iOS 上把未来的每个提醒点排进系统闹钟，应用被划掉、重启手机后依然推送；桌面端保持前台定时检查。
 - **设置**：浅色 / 深色 / 跟随系统三种主题；可配置启动页（首页 / 上次使用的功能 / 指定模块）；到期通知开关与每日提醒时间。
 - **备份与恢复**：导出全部数据（含设置）或单个模块为 `.jtbx` 包，导入时可选**覆盖**或**合并**。
@@ -49,13 +49,15 @@ src/
 │  ├─ module/             # 模块契约（types）与注册表
 │  ├─ notify/             # 系统通知：权限、即时推送、系统闹钟排程
 │  ├─ settings/           # 全局设置持久化与主题应用
-│  ├─ storage/            # 统一存储驱动（Tauri fs / localStorage）
+│  ├─ storage/            # 统一存储驱动（Tauri fs / localStorage）+ 媒体文件读写
 │  ├─ date.ts             # 本地时区日期计算
+│  ├─ image.ts            # 选图后缩放压缩（编辑期预览用）
 │  ├─ id.ts / runtime.ts / version.ts
 ├─ modules/
 │  └─ expiry/             # 物品到期提醒
 │     ├─ manifest.ts      # 模块声明：路由 / 图标 / 角标 / 预加载
 │     ├─ store.ts         # 数据读写与状态
+│     ├─ images.ts        # 图片落盘 / 读取 / 删除（相对路径约定）
 │     ├─ schedule.ts      # 计算未来提醒点并排入系统闹钟
 │     ├─ reminder.ts      # 前台兜底扫描与通知
 │     ├─ types.ts
@@ -74,21 +76,25 @@ Tauri 运行时写入应用数据目录（`appDataDir`），按模块分目录�
 settings.json
 modules/expiry/data.json          # 每个模块独占一份
 modules/expiry/data.json.bak      # 上一次成功写入的副本
+modules/expiry/images/*.jpg       # 物品图片（data.json 里只存相对路径）
 ```
 
 写入策略为「临时文件 → 校验 → 覆盖」，读取失败时自动回退 `.bak`。浏览器预览（`npm run dev`）没有 Tauri 运行时，驱动自动降级到 `localStorage`（前缀 `jtb:`），页面全部功能可离线调试。
 
+物品图片压缩后存成模块目录里的真实文件，`data.json` 只记相对路径（`images/img_xxx.jpg`），因此 JSON 始终可读、也不会随图片数量膨胀。
+
 ### 备份包格式
 
-`.jtbx` 是标准 zip：
+`.jtbx` 是标准 zip，**模块目录整包导出**（`data.json` + 图片等附属文件）：
 
 ```
 manifest.json            { app, schema, appVersion, exportedAt, modules, includeSettings }
 settings.json            仅「导出全部」时包含
 modules/expiry/data.json
+modules/expiry/images/img_ab12cd.jpg
 ```
 
-「合并」按 id 覆盖同名条目、保留其余数据；「覆盖」直接用包内数据替换。导入前会展示包内模块与导出时间。
+「合并」按 id 覆盖同名条目、保留其余数据，图片按文件补入；「覆盖」会先清空包内涉及的模块目录再整包还原，避免旧图片变成孤儿。导入前会展示包内模块与导出时间。
 
 ## 新增一个工具模块
 
@@ -200,7 +206,7 @@ Android 备忘：
 - **Android 导出**：备份导出依赖系统文件选择器，部分机型对 `content://` 写入支持有限，若失败请改用桌面端导出或后续改用 SAF。
 - 本仓库的调试链路只在真机（USB 调试）上验证过，模拟器行为可能与真机有差异。
 - iOS 构建只能在 macOS + Xcode 下进行。
-- 桌面窗口默认 390×844（模拟手机比例）。
+- 桌面窗口默认 360×640。
 - Element Plus 为桌面优先组件库，触控交互较重的页面可考虑搭配 Vant。
 
 ## 自动构建
