@@ -34,4 +34,4 @@
 
 ## 仓库状态
 
-尚未 `git init`。根 `.gitignore` 忽略 `node_modules`、`dist`、`*.log`，但未忽略 `release/` 与 `.workbuddy/`。
+已推送至 <https://github.com/nickynull/JToolsBoxMobile>（public，`main`）。根 `.gitignore` 忽略 `node_modules`、`dist`、`*.log`、`release/`、`*.apk`/`*.aab`、`*.jks` 与 `keystore.properties`；`.workbuddy/` 有意提交。**仓库公开，文档里不写本机绝对路径与机器特定配置。**

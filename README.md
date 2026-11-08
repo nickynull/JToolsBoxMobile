@@ -131,23 +131,22 @@ npm run tauri dev
 
 ## Android 开发
 
-本机（Windows）环境已配置完成：
+Android 工具链版本需与工程配置一致：
 
-| 项 | 路径 / 版本 |
+| 项 | 版本 / 说明 |
 | --- | --- |
-| JDK | Microsoft OpenJDK 17.0.21，`%USERPROFILE%\.jdks\microsoft-jdk-17` |
-| Android SDK | `%LOCALAPPDATA%\Android\Sdk` |
-| SDK Platform | android-37.0（应用 compileSdk 37）、android-36（Tauri 库 compileSdk 36） |
+| JDK | 17（工程按 Java 17 编译） |
+| Android SDK Platform | android-37.0（应用 compileSdk 37）、android-36（Tauri 库 compileSdk 36） |
 | Build-Tools | 36.0.0（AGP 默认）、37.0.0 |
 | NDK | 27.0.12077973 |
-| Platform-Tools | adb 37.0.1 |
+| Platform-Tools | 随 Android SDK 安装（提供 `adb`） |
 | Rust 目标 | aarch64 / armv7 / i686 / x86_64-linux-android |
 
-用户环境变量已写入 `JAVA_HOME`、`ANDROID_HOME`、`ANDROID_SDK_ROOT`、`NDK_HOME`，PATH 已加入 Java、platform-tools、cmdline-tools 与 emulator。**已打开的终端需要重开**才能读到新变量。
+安装后设置 `JAVA_HOME`、`ANDROID_HOME`、`ANDROID_SDK_ROOT`、`NDK_HOME`，并把 Java、platform-tools、cmdline-tools 加入 `PATH`；改完环境变量需重开终端。
 
-> Android 工程已生成在 `src-tauri/gen/android`，无需再次 `android:init`。
-> Gradle Wrapper 使用腾讯云镜像下载 Gradle 9.6.1；`build.gradle.kts` / `buildSrc/build.gradle.kts` 已加入阿里云 Maven 镜像，避免 Google Maven 下载超时。
-> Windows 必须开启「开发者模式」（非管理员进程创建符号链接需要），本机已开启。
+> Android 工程已随仓库提供（`src-tauri/gen/android`），不需要再执行 `android:init`。
+> Gradle Wrapper 通过腾讯云镜像下载 Gradle；`build.gradle.kts` / `buildSrc/build.gradle.kts` 已配置阿里云 Maven 镜像，避免 Google Maven 下载超时。
+> Windows 上需开启「开发者模式」，否则非管理员进程无法创建符号链接。
 
 连接开启 USB 调试的真机后运行：
 
@@ -156,12 +155,12 @@ adb devices        # 确认设备已授权
 npm run android:dev
 ```
 
-产物固定落在 `src-tauri/gen/android/app/build/outputs/apk/universal/{debug,release}/`。universal debug 包含 4 个 ABI 与调试符号，体积约 480 MB；release 包明显更小。已发布的 arm64 包见 [GitHub Releases](https://github.com/nickynull/JToolsBoxMobile/releases)，本地归档目录 `release/` 不入库。
+产物固定落在 `src-tauri/gen/android/app/build/outputs/apk/universal/{debug,release}/`。universal debug 含 4 个 ABI 与调试符号，体积数百 MB；release 包明显更小。已发布的 arm64 包见 [GitHub Releases](https://github.com/nickynull/JToolsBoxMobile/releases)；构建产物与 `release/` 归档目录均被 `.gitignore` 忽略，不入库。
 
 Release 签名：
 
-- 密钥库：`%USERPROFILE%\.android\jtoolsbox-release.jks`（RSA 2048，alias `jtoolsbox`，有效期 10000 天），**放在仓库外，务必自行备份**；丢失后无法覆盖安装升级。
-- `src-tauri/gen/android/keystore.properties` 保存路径与口令，已被忽略，不要提交。
+- 密钥库（`.jks`，RSA 2048，有效期自定）**存放于仓库之外**，请自行妥善备份；丢失后同包名无法覆盖安装升级。
+- `src-tauri/gen/android/keystore.properties` 保存密钥库路径、别名与口令，已被忽略，不要提交。
 - `app/build.gradle.kts` 读取该文件并条件生成 `release` signingConfig；不存在时回退为未签名构建。
 - 更换密钥库后需先卸载旧版本才能安装新签名的包。
 
@@ -170,7 +169,7 @@ Android 备忘：
 - 包名来自 `tauri.conf.json` 的 `identifier`（`com.jimmy.jtoolsbox.mobile`），修改需同步 `gen/android`。
 - 应用显示名称在 `gen/android/app/src/main/res/values/strings.xml`。
 - 图标用 `scripts/make-icon.py` + `npx tauri icon` 生成，不要手工替换。
-- 本机未安装模拟器与系统镜像，调试优先使用 USB 真机。
+- 没有模拟器时用 USB 真机调试（`npm run android:dev` 会自动选择已授权设备）。
 
 ## 移动端适配
 
@@ -199,7 +198,7 @@ Android 备忘：
 - **省电策略**：部分国产 ROM 的「自启动 / 后台限制」会清掉闹钟，需要在系统设置里给本应用加白名单。
 - **桌面端不会后台响**：桌面没有跨平台的后台定时任务，需要应用保持运行；Windows 计划任务方案暂未实现。
 - **Android 导出**：备份导出依赖系统文件选择器，部分机型对 `content://` 写入支持有限，若失败请改用桌面端导出或后续改用 SAF。
-- 本机未安装 Android 模拟器，需真机调试。
+- 本仓库的调试链路只在真机（USB 调试）上验证过，模拟器行为可能与真机有差异。
 - iOS 构建只能在 macOS + Xcode 下进行。
 - 桌面窗口默认 390×844（模拟手机比例）。
 - Element Plus 为桌面优先组件库，触控交互较重的页面可考虑搭配 Vant。
