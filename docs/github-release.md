@@ -16,7 +16,7 @@
 | 签名材料 | 能访问与历史版本**同一个**签名密钥库，否则用户无法覆盖升级 |
 | 忽略规则 | 确认 `src-tauri/gen/android/keystore.properties`、密钥库文件都未被跟踪（前者已被忽略） |
 
-发布前先确认 `.gitignore` 是否会误纳入大体积产物：`release/`、`*.apk`、`*.aab`、`*.jks` 与各 `keystore.properties` 已忽略，安装包只作为 Release 附件分发；`.workbuddy/`（AI 协作笔记与工作日志）仍会提交，属有意为之。
+发布前先确认 `.gitignore` 是否会误纳入大体积产物：`release/`、`*.apk`、`*.aab`、`*.jks` 与各 `keystore.properties` 已忽略，安装包只作为 Release 附件分发；AI 协作的本地文件 `CODEBUDDY.md` 与 `.workbuddy/` 也已忽略、不入库（`AGENTS.md` 保留）。
 
 ---
 

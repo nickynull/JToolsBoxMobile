@@ -1,6 +1,6 @@
 # AGENTS.md — JToolsBox
 
-> 跨工具兼容入口。**完整项目上下文见根目录 `CODEBUDDY.md`**（WorkBuddy/CodeBuddy 会自动加载），人类文档见 `README.md`。两处内容若不一致，以 `CODEBUDDY.md` 为准并同步修正本文件。
+> 跨工具兼容入口。人类文档见 `README.md`；本文件是仓库内保留的精简上下文。完整的 AI 协作上下文 `CODEBUDDY.md` 与 `.workbuddy/` 笔记仅存于本地（已忽略、不入库），本地环境下 WorkBuddy / CodeBuddy 会自动加载。
 
 ## 项目速览
 
@@ -34,4 +34,4 @@
 
 ## 仓库状态
 
-已推送至 <https://github.com/nickynull/JToolsBoxMobile>（public，`main`）。根 `.gitignore` 忽略 `node_modules`、`dist`、`*.log`、`release/`、`*.apk`/`*.aab`、`*.jks` 与 `keystore.properties`；`.workbuddy/` 有意提交。**仓库公开，文档里不写本机绝对路径与机器特定配置。**
+已推送至 <https://github.com/nickynull/JToolsBoxMobile>（public，`main`）。根 `.gitignore` 忽略 `node_modules`、`dist`、`*.log`、`release/`、`*.apk`/`*.aab`、`*.jks` 与 `keystore.properties`，以及 AI 协作的本地文件 `CODEBUDDY.md` / `.workbuddy/`（`AGENTS.md` 保留入库）。**仓库公开，文档里不写本机绝对路径与机器特定配置。**

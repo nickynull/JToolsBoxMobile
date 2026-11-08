@@ -33,3 +33,9 @@ keystore.properties
 key.properties
 *.jks
 *.keystore
+
+# AI 协作本地文件：不进公开仓库（AGENTS.md 保留入库）
+CODEBUDDY.md
+codebuddy.md
+.workbuddy/
+.codebuddy/
