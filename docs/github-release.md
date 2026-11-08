@@ -72,9 +72,19 @@ base64 -w0 <密钥库文件> | xclip -selection clipboard
 
 ---
 
-## 4. 工作流模板
+## 4. 工作流
 
-保存为 `.github/workflows/android-release.yml`：
+已落地在 [`.github/workflows/android-release.yml`](../.github/workflows/android-release.yml)：触发方式为推送 `v*` 标签或手动 `workflow_dispatch`，job 级权限 `contents: write`，整体流程与下面的模板一致，并额外做了三件事：
+
+| 额外步骤 | 作用 |
+| --- | --- |
+| 整理产物 | 按 `tauri.conf.json` 的版本重命名为 `JToolsBox-Mobile-<版本>-arm64.apk`，同时生成 `.sha256` |
+| 校验签名 | 用 `apksigner verify` 判定是否真被签名；未签名时给 warning 并**跳过** Release 附加，避免分发装不上的包 |
+| 附加到 Release | 仅在 tag 触发且已签名时 `gh release upload --clobber`，Release 不存在则先 create |
+
+签名仍是**有条件**的：未配置 `ANDROID_KEYSTORE_BASE64` 时构建照常跑通，只是产物未签名、无法安装。四个 Secret 的键名必须与 `app/build.gradle.kts` 读取的四个键一一对应（见第 3 节）。
+
+以下是原始模板，留作对照参考：
 
 ```yaml
 name: android-release

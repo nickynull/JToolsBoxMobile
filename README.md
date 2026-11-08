@@ -1,5 +1,8 @@
 # JToolsBox
 
+[![android-release](https://github.com/nickynull/JToolsBoxMobile/actions/workflows/android-release.yml/badge.svg)](https://github.com/nickynull/JToolsBoxMobile/actions/workflows/android-release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 本地优先的移动工具箱：**Tauri 2 + Vue 3 + TypeScript + Element Plus**，同一套前端代码运行在 Android、iOS 和桌面端。所有数据保存在设备本地，不需要任何服务端。
 
 ## 下载
@@ -200,3 +203,13 @@ Android 备忘：
 - iOS 构建只能在 macOS + Xcode 下进行。
 - 桌面窗口默认 390×844（模拟手机比例）。
 - Element Plus 为桌面优先组件库，触控交互较重的页面可考虑搭配 Vant。
+
+## 自动构建
+
+推 `v*` 标签即触发 [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml)，在 GitHub Runner 上产出 arm64 签名 APK 并自动附加到同名 Release；也可在 Actions 页面手动 Run workflow，只产出 artifact、不动 Release。
+
+签名材料通过 4 个 Secrets 注入（`ANDROID_KEYSTORE_BASE64` / `ANDROID_KEY_ALIAS` / `ANDROID_STORE_PASSWORD` / `ANDROID_KEY_PASSWORD`），密钥库只在 runner 临时目录还原，构建结束即销毁。**未配置 Secrets 也能构建，但产物未签名、无法安装**，工作流会给出警告并跳过 Release 附加。配置步骤见 [docs/github-release.md](docs/github-release.md)。
+
+## 许可证
+
+[MIT](LICENSE) © 2026 Jimmy

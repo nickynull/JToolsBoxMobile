@@ -1,0 +1,155 @@
+name: android-release
+
+# 触发方式：
+#   1. 推送 v* 标签（如 v1.0.1）→ 构建并自动附加到同名 Release
+#   2. 手动 Run workflow → 只构建并产出 artifact，不动 Release
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NDK_VERSION: 27.0.12077973
+  SDK_PLATFORM: '37'
+  BUILD_TOOLS: 37.0.0
+
+jobs:
+  android:
+    name: 构建 arm64 签名 APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      signed: ${{ steps.signcheck.outputs.signed }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: 安装 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 Rust 与 Android 目标
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: 缓存 Rust 构建
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: 准备 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装 SDK 组件
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platform-tools" "build-tools;${BUILD_TOOLS}" "ndk;${NDK_VERSION}"
+          # android-37 若尚未进入 stable 渠道，回退到预览渠道
+          sdkmanager --install "platforms;android-${SDK_PLATFORM}" \
+            || sdkmanager --install --channel=3 "platforms;android-${SDK_PLATFORM}"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Gradle 换回官方发行版
+        run: |
+          # 仓库里的 wrapper 指向腾讯云镜像，境外 runner 不可达
+          sed -i 's|mirrors.cloud.tencent.com/gradle/|services.gradle.org/distributions/|' \
+            src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
+          grep distributionUrl src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: 安装前端依赖
+        run: npm ci
+
+      - name: 注入签名配置
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::未配置 ANDROID_KEYSTORE_BASE64，本次产出未签名 APK，无法直接安装"
+            exit 0
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" \
+            > src-tauri/gen/android/keystore.properties
+          echo "已注入签名配置（密钥库仅存在于 runner 临时目录）"
+
+      - name: 构建 APK
+        run: npx tauri android build --apk --target aarch64
+
+      - name: 整理产物
+        id: meta
+        run: |
+          VERSION=$(jq -r .version src-tauri/tauri.conf.json)
+          SRC=$(ls src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk | head -1)
+          NAME="JToolsBox-Mobile-${VERSION}-arm64.apk"
+          mkdir -p out
+          cp "$SRC" "out/$NAME"
+          (cd out && sha256sum "$NAME" > "$NAME.sha256")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh out
+
+      - name: 校验签名
+        id: signcheck
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
+          if "$APKSIGNER" verify --print-certs "out/${{ steps.meta.outputs.apk_name }}" > /tmp/certs.txt 2>&1; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            grep -i 'SHA-256' /tmp/certs.txt | head -2
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::APK 未签名，跳过 Release 附加；请配置 4 个签名 Secrets 后重跑"
+          fi
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: JToolsBox-Mobile-${{ steps.meta.outputs.version }}-arm64
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 附加到 Release
+        if: startsWith(github.ref, 'refs/tags/') && steps.signcheck.outputs.signed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 \
+            || gh release create "$TAG" --title "JToolsBox Mobile $TAG" --generate-notes
+          gh release upload "$TAG" out/*.apk out/*.sha256 --clobber
+
+      - name: 写入任务摘要
+        if: always()
+        run: |
+          {
+            echo "### Android 构建结果"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 版本 | \`${{ steps.meta.outputs.version }}\` |"
+            echo "| 已签名 | \`${{ steps.signcheck.outputs.signed }}\` |"
+            echo "| 触发 | \`${{ github.event_name }}\` / \`${{ github.ref_name }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
