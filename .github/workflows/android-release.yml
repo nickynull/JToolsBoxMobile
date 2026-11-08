@@ -74,13 +74,20 @@ jobs:
 
       - name: Gradle 换回官方发行版
         run: |
+          WRAPPER=src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
           # 仓库里的 wrapper 指向腾讯云镜像，境外 runner 不可达
-          sed -i 's|mirrors.cloud.tencent.com/gradle/|services.gradle.org/distributions/|' \
-            src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
-          grep distributionUrl src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's|mirrors.cloud.tencent.com/gradle/|services.gradle.org/distributions/|' "$WRAPPER"
+          # wrapper 默认网络超时仅 10s 且不重试，200 MB 发行包极易超时
+          grep -q '^networkTimeout=' "$WRAPPER" || echo 'networkTimeout=120000' >> "$WRAPPER"
+          cat "$WRAPPER"
 
       - name: 安装前端依赖
         run: npm ci
+
+      - name: 缓存 Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: src-tauri/gen/android
 
       - name: 注入签名配置
         env:
