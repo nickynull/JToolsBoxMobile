@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { TopRight } from "@element-plus/icons-vue";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { getModules } from "../core/module/registry";
 import { settings, setTheme, updateSettings } from "../core/settings";
 import { ensureNotifyPermission, notifyState } from "../core/notify";
@@ -17,6 +19,23 @@ import { isTauri } from "../core/runtime";
 import { APP_VERSION } from "../core/version";
 
 const modules = computed(() => getModules());
+
+const AUTHOR = "Jimmy";
+const REPO_URL = "https://github.com/nickynull/JToolsBoxMobile";
+const REPO_DISPLAY = "github.com/nickynull/JToolsBoxMobile";
+
+/** 用系统浏览器打开仓库：应用内 WebView 打开 GitHub 体验很差，也不该离开应用上下文 */
+async function openRepo(): Promise<void> {
+  try {
+    if (isTauri) {
+      await openUrl(REPO_URL);
+    } else {
+      window.open(REPO_URL, "_blank", "noopener");
+    }
+  } catch {
+    ElMessage.warning(`打开浏览器失败：${REPO_URL}`);
+  }
+}
 
 const theme = computed({
   get: () => settings.theme,
@@ -317,6 +336,17 @@ async function clearAll() {
         <small class="value">{{ APP_VERSION }}</small>
       </div>
       <div class="row">
+        <span class="label">作者</span>
+        <small class="value">{{ AUTHOR }}</small>
+      </div>
+      <div class="row">
+        <span class="label">GitHub</span>
+        <button class="link-btn" type="button" @click="openRepo">
+          <span>{{ REPO_DISPLAY }}</span>
+          <el-icon><TopRight /></el-icon>
+        </button>
+      </div>
+      <div class="row">
         <span class="label">运行环境</span>
         <small class="value">{{ isTauri ? "Tauri 运行时" : "浏览器预览" }}</small>
       </div>
@@ -398,6 +428,32 @@ async function clearAll() {
 .value {
   font-size: 0.78rem;
   color: var(--el-text-color-secondary);
+}
+
+/* 可点击的外链：用 button 而非 a，避免 WebView 的长按「在新窗口打开」菜单 */
+.link-btn {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  max-width: 64%;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.link-btn span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.link-btn:active {
+  opacity: 0.6;
 }
 
 .select {

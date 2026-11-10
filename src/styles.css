@@ -34,6 +34,30 @@ body {
   color: var(--el-text-color-primary);
 }
 
+/*
+ * 全局禁止「长按选中 / 复制文字」。
+ * - user-select:none 让普通文本不产生选区；-webkit-touch-callout:none 关掉 iOS
+ *   长按弹出的「拷贝 / 查询」菜单；
+ * - Android System WebView 仍可能自行拉起选择手柄与上下文菜单，由
+ *   core/selection.ts 在捕获阶段拦截 contextmenu / selectstart 兜底。
+ * 输入类控件必须放行，否则光标定位、选中与粘贴都不可用。
+ */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable]:not([contenteditable="false"]) {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 /* 移动端 WebView 中禁用双击缩放带来的闪动 */
 button,
 input,
@@ -47,4 +71,22 @@ textarea {
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /*
+   * 顶部浮层避让量：常见居中打孔前摄的开孔直径约 3~6mm（≈20~38 CSS px，
+   * 连同黑边可到约 50px），叠加 24~36px 的状态栏。这里取折中值 28px，
+   * 让 toast 避开打孔核心区域，又不至于压到内容区太深（56px 实机偏低）。
+   */
+  --toast-top-offset: calc(var(--safe-top) + 28px);
+}
+
+/*
+ * ElMessage 把 offset 写成内联 top（默认 16px），多条之间的间距由组件内部
+ * 按 height 累加计算。直接覆盖 top 会让所有 toast 叠在同一处，所以改用
+ * margin-top 做整体平移：首条基线 = 16px + var(--toast-top-offset)
+ * = var(--safe-top) + 44px。堆叠间距与淡入动画都不受影响。
+ * 底部弹出的消息靠 bottom 定位，不需要下移。
+ */
+.el-message:not(.is-bottom) {
+  margin-top: var(--toast-top-offset);
 }

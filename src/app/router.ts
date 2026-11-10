@@ -15,6 +15,12 @@ declare module "vue-router" {
      * `"fill"` 表示壳层交出高度且自身不滚动，由页面自行分区（如上部滚动 + 下部固定操作栏）。
      */
     layout?: "fill";
+    /**
+     * 页面实例是否常驻缓存（`<keep-alive>`）。工具主页这类「从详情页返回后
+     * 筛选条件 / 滚动位置不应丢失」的页面要打开；新增 / 编辑页不要开。
+     * 组件必须显式 `defineOptions({ name })`，KeepAlive 的 include 只认 name。
+     */
+    keepAlive?: boolean;
   }
 }
 

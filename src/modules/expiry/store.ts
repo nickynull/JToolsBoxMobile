@@ -8,6 +8,7 @@ import {
   CUSTOM_CATEGORY_COLORS,
   DEFAULT_CATEGORY,
   MAX_IMAGES,
+  isHexColor,
   type CategoryDef,
   type CustomCategory,
   type ExpiryData,
@@ -18,26 +19,40 @@ import {
 } from "./types";
 
 const KEY = "modules/expiry/data.json";
-/** v4：图片从内联 base64 改为模块目录下的图片文件 + 相对路径 */
-const DATA_VERSION = 4;
+/**
+ * v4：图片从内联 base64 改为模块目录下的图片文件 + 相对路径；
+ * v5：分类颜色可编辑（内置分类的颜色覆盖记在 `categoryColors`）
+ */
+const DATA_VERSION = 5;
 
 interface ExpiryState {
   items: ExpiryItem[];
   categories: CustomCategory[];
+  /** 内置分类的颜色覆盖；自定义分类的颜色直接存在自身对象上 */
+  categoryColors: Record<string, string>;
   loaded: boolean;
 }
 
 export const expiryState = reactive<ExpiryState>({
   items: [],
   categories: [],
+  categoryColors: {},
   loaded: false,
 });
 
-/** 内置 + 自定义，供筛选、编辑页下拉共同使用。 */
+/** 内置 + 自定义，供筛选、编辑页下拉共同使用；覆盖色在这里统一生效。 */
 export const categoryOptions = computed<CategoryDef[]>(() => [
-  ...BUILTIN_CATEGORIES,
+  ...BUILTIN_CATEGORIES.map((item) => ({
+    ...item,
+    color: expiryState.categoryColors[item.id] ?? item.color,
+  })),
   ...expiryState.categories,
 ]);
+
+/** 内置分类不能删除，界面据此隐藏删除按钮 */
+export function isBuiltinCategory(id: string): boolean {
+  return BUILTIN_CATEGORIES.some((item) => item.id === id);
+}
 
 const categoryMap = computed(
   () => new Map(categoryOptions.value.map((item) => [item.id, item])),
@@ -165,7 +180,7 @@ function normalizeCategory(raw: Partial<CustomCategory>): CustomCategory | null 
   return {
     id: raw.id,
     label,
-    color: typeof raw.color === "string" && raw.color ? raw.color : "#909399",
+    color: isHexColor(raw.color) ? raw.color : "#909399",
     createdAt: raw.createdAt ?? new Date().toISOString(),
   };
 }
@@ -218,6 +233,17 @@ export async function loadExpiry(): Promise<void> {
   expiryState.categories = categories
     .map((item) => normalizeCategory(item))
     .filter((item): item is CustomCategory => item !== null);
+  // 内置分类的颜色覆盖：只留内置 id + 合法色值，脏数据直接丢掉
+  const colors: Record<string, string> = {};
+  const storedColors = stored?.categoryColors;
+  if (storedColors && typeof storedColors === "object") {
+    for (const [key, value] of Object.entries(storedColors)) {
+      if (isBuiltinCategory(key) && isHexColor(value)) {
+        colors[key] = value;
+      }
+    }
+  }
+  expiryState.categoryColors = colors;
   expiryState.loaded = true;
   if (migrated) {
     await persistExpiry();
@@ -229,6 +255,7 @@ export async function persistExpiry(): Promise<void> {
     version: DATA_VERSION,
     items: expiryState.items,
     categories: expiryState.categories,
+    categoryColors: expiryState.categoryColors,
   });
 }
 
@@ -281,6 +308,34 @@ export async function removeCategory(id: string): Promise<boolean> {
   expiryState.categories = next;
   await persistExpiry();
   return true;
+}
+
+/**
+ * 修改分类颜色。自定义分类直接改自身，内置分类记进 `categoryColors` 覆盖表；
+ * 两者都走同一入口，界面不用关心分类是内置还是自建。
+ */
+export async function setCategoryColor(
+  id: string,
+  color: string,
+): Promise<void> {
+  if (!isHexColor(color)) {
+    return;
+  }
+  const custom = expiryState.categories.find((item) => item.id === id);
+  if (custom) {
+    if (custom.color === color) {
+      return;
+    }
+    custom.color = color;
+  } else if (isBuiltinCategory(id)) {
+    if (expiryState.categoryColors[id] === color) {
+      return;
+    }
+    expiryState.categoryColors[id] = color;
+  } else {
+    return;
+  }
+  await persistExpiry();
 }
 
 export async function createItem(

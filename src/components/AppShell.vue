@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ArrowLeft, Grid, Setting, Box } from "@element-plus/icons-vue";
+import { ArrowLeft, House, Setting, Box } from "@element-plus/icons-vue";
 import { getModule } from "../core/module/registry";
-import ModuleSwitcher from "./ModuleSwitcher.vue";
 
 const route = useRoute();
 const router = useRouter();
-const switcherOpen = ref(false);
+const isHome = computed(() => route.name === "home");
 
 const moduleId = computed(() => route.meta.moduleId as string | undefined);
 const currentModule = computed(() => getModule(moduleId.value));
@@ -32,7 +31,8 @@ const lastModuleId = ref<string | undefined>();
 watch(
   () => route.fullPath,
   () => {
-    if (!isSettings.value) {
+    // 主页不算工具页：从这里切走时，「工具」页签仍指向上一次停留的工具页
+    if (!isSettings.value && !isHome.value) {
       lastToolsPath.value = route.fullPath;
       lastModuleId.value = moduleId.value;
     }
@@ -41,11 +41,11 @@ watch(
 );
 
 /**
- * 工具页签指向的模块：当前模块；在设置页则用上次离开时所在的模块。
+ * 工具页签指向的模块：当前模块；在设置页或主页则用上次离开时所在的模块。
  * 文案与图标都从它派生，保证两者始终同步。
  */
 const toolsTabModule = computed(() =>
-  getModule(isSettings.value ? lastModuleId.value : moduleId.value),
+  getModule(isSettings.value || isHome.value ? lastModuleId.value : moduleId.value),
 );
 
 const toolsTabLabel = computed(() => toolsTabModule.value?.name ?? "工具");
@@ -53,15 +53,21 @@ const toolsTabLabel = computed(() => toolsTabModule.value?.name ?? "工具");
 const toolsTabIcon = computed(() => toolsTabModule.value?.icon ?? Box);
 
 function openTools() {
-  // 在设置页：回到离开工具页签时的那一页
-  if (isSettings.value) {
+  if (isSettings.value || isHome.value) {
+    // 从设置页 / 主页切回：原地返回离开工具页签时所在的那一页
     void router.push(lastToolsPath.value || "/");
     return;
   }
-  // 已在工具页签内（深一层）：点当前页签回到页签根
-  if (route.name !== "home") {
-    void router.push({ name: "home" });
-  }
+  // 已在工具页签内（含模块入口页与深层编辑页）：点当前页签保持原位。
+  // 不要跳回应用主页；返回上一级交给顶栏返回按钮 / 系统返回键按 meta.back 处理。
+}
+
+function goHome() {
+  void router.push({ name: "home" });
+}
+
+function goSettings() {
+  void router.push({ name: "settings" });
 }
 
 function goBack() {
@@ -89,15 +95,6 @@ function goBack() {
         <h1>{{ title }}</h1>
         <p v-if="currentModule">{{ currentModule.description }}</p>
       </div>
-      <button
-        v-if="moduleId"
-        class="bar-btn"
-        type="button"
-        aria-label="切换功能"
-        @click="switcherOpen = true"
-      >
-        <el-icon :size="20"><Grid /></el-icon>
-      </button>
     </header>
 
     <main class="content" :class="{ fill: fillLayout }">
@@ -105,27 +102,35 @@ function goBack() {
     </main>
 
     <nav class="tabbar">
+      <!-- 主页常驻最左：任何页面一键回主页（顶栏不再放主页按钮） -->
       <button
-        class="tab"
+        class="tab tab-home"
         type="button"
-        :class="{ active: !isSettings }"
+        :class="{ active: isHome }"
+        @click="goHome"
+      >
+        <el-icon :size="20"><House /></el-icon>
+        <span>主页</span>
+      </button>
+      <button
+        class="tab grow"
+        type="button"
+        :class="{ active: !isSettings && !isHome }"
         @click="openTools"
       >
         <el-icon :size="20"><component :is="toolsTabIcon" /></el-icon>
         <span class="tab-label">{{ toolsTabLabel }}</span>
       </button>
       <button
-        class="tab"
+        class="tab tab-settings"
         type="button"
         :class="{ active: isSettings }"
-        @click="router.push({ name: 'settings' })"
+        @click="goSettings"
       >
         <el-icon :size="20"><Setting /></el-icon>
         <span>设置</span>
       </button>
     </nav>
-
-    <ModuleSwitcher v-model="switcherOpen" :current="moduleId" />
   </div>
 </template>
 
@@ -148,8 +153,9 @@ function goBack() {
   gap: 8px;
   padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + 12px) 10px
     calc(var(--safe-left) + 12px);
-  background: color-mix(in srgb, var(--el-bg-color) 86%, transparent);
-  backdrop-filter: blur(14px);
+  background: var(--el-bg-color);
+  /* 不用 backdrop-filter 毛玻璃：Android WebView 高频切页时重采样背景
+     会触发渲染进程崩溃（真机验证中，确认后此注释改写为正式约定） */
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
@@ -212,21 +218,31 @@ function goBack() {
 .tabbar {
   display: flex;
   gap: 4px;
+  /*
+   * 紧凑按钮当前约 40px（图标 20 + 左右内边距各 10），设置按钮约 42px
+   *（中文文案 22 + 内边距 20）。最小宽度各取两倍以扩大点击区；
+   * 用 min-width 而非 width，多语言文案变长时按钮仍会自己撑开。
+   */
+  --tab-min-home: 80px;
+  --tab-min-settings: 84px;
   padding: 6px calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 6px)
     calc(var(--safe-left) + 12px);
-  background: color-mix(in srgb, var(--el-bg-color) 92%, transparent);
-  backdrop-filter: blur(14px);
+  background: var(--el-bg-color);
+  /* 同顶栏：去 backdrop-filter，避免合成器重采样背景崩溃 */
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .tab {
   display: flex;
-  flex: 1;
+  /* 按内容自适应宽度；各按钮的 min-width 只保底，不锁死多语言文案宽度 */
+  flex: 0 1 auto;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 6px 0;
+  padding: 6px 10px;
   font-size: 0.68rem;
+  /* 文案变长时不换行，避免把底栏撑高 */
+  white-space: nowrap;
   color: var(--el-text-color-secondary);
   background: transparent;
   border: none;
@@ -235,6 +251,22 @@ function goBack() {
   transition:
     color 0.15s ease,
     background 0.15s ease;
+}
+
+/* 工具页签吃掉剩余空间，名称过长时交给 .tab-label 省略 */
+.tab.grow {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* 最左侧的主页页签：与设置页签同宽，图标 + 文字 */
+.tab-home {
+  min-width: var(--tab-min-home);
+}
+
+/* 设置按钮同样给两倍最小宽度，文案仍按内容自适应 */
+.tab-settings {
+  min-width: var(--tab-min-settings);
 }
 
 .tab.active {

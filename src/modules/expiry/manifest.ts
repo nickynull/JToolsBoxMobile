@@ -22,7 +22,7 @@ export const expiryModule: ToolModule = {
       path: "/m/expiry",
       name: "expiry-list",
       component: ExpiryListView,
-      meta: { moduleId: "expiry", title: "到期提醒" },
+      meta: { moduleId: "expiry", title: "到期提醒", keepAlive: true },
     },
     {
       path: "/m/expiry/new",

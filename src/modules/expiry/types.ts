@@ -34,6 +34,49 @@ export const CUSTOM_CATEGORY_COLORS = [
   "#F759AB",
 ];
 
+/**
+ * 分类取色板：分类管理里换颜色用（内置分类也能改）。
+ * 都是中等明度的实色，深色模式下压在深底上仍然看得清。
+ */
+export const CATEGORY_PALETTE = [
+  "#E6A23C",
+  "#FA8C16",
+  "#F56C6C",
+  "#D4537E",
+  "#EB2F96",
+  "#F759AB",
+  "#9254DE",
+  "#2F54EB",
+  "#409EFF",
+  "#13C2C2",
+  "#67C23A",
+  "#12B76A",
+];
+
+/** 颜色合法性：只认 `#RRGGBB`，避免脏数据写进样式里 */
+export function isHexColor(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+/**
+ * 把用户输入的颜色规范成 `#RRGGBB`。
+ * 容忍省略 `#` 与 3 位简写（`f00` → `#FF0000`），非法返回 null。
+ */
+export function normalizeHexColor(input: string): string | null {
+  const text = input.trim().replace(/^#/, "");
+  if (/^[0-9a-fA-F]{3}$/.test(text)) {
+    return `#${text
+      .split("")
+      .map((char) => char + char)
+      .join("")
+      .toUpperCase()}`;
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(text)) {
+    return `#${text.toUpperCase()}`;
+  }
+  return null;
+}
+
 /** 有效期单位：天 / 月 / 年 */
 export type ShelfLifeUnit = "day" | "month" | "year";
 
@@ -88,6 +131,11 @@ export interface ExpiryData {
   version: number;
   items: ExpiryItem[];
   categories: CustomCategory[];
+  /**
+   * 内置分类的颜色覆盖，形如 `{ food: "#67C23A" }`。
+   * 内置分类的定义是代码里的常量，改色只能记在这张表里。
+   */
+  categoryColors?: Record<string, string>;
 }
 
 export const REMIND_DAY_OPTIONS = [30, 15, 7, 3, 1, 0];

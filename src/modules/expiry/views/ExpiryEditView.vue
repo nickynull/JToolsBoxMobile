@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, type InputInstance } from "element-plus";
 import { Camera, Close, Picture } from "@element-plus/icons-vue";
 import {
   addDays,
@@ -19,6 +19,7 @@ import {
   saveImage,
 } from "../images";
 import {
+  categoryColorOf,
   categoryOptions,
   computeExpireAt,
   createItem,
@@ -84,10 +85,40 @@ function releaseFormImageUrls() {
   form.images.forEach((image) => releaseImageUrl(image.src));
 }
 
+/**
+ * 新增时的默认分类：主页带过来的 `?category=`（主页筛选了分类时会透传），
+ * 校验不存在则退回内置的「食品」。
+ */
+function defaultCategory(): string {
+  const raw = route.query.category;
+  const wanted = Array.isArray(raw) ? raw[0] : raw;
+  if (
+    typeof wanted === "string" &&
+    wanted !== "" &&
+    categoryOptions.value.some((option) => option.id === wanted)
+  ) {
+    return wanted;
+  }
+  return "food";
+}
+
+/**
+ * 新增页打开即聚焦名称，省一次点击。编辑页不抢焦点——否则一进页就弹键盘，
+ * 盖住半屏内容还看不出自己改的是哪条记录。
+ */
+const nameInput = ref<InputInstance | null>(null);
+
+function focusName() {
+  // 等本帧渲染完再调 `el-input` 暴露的 focus()，直接拿原生 input 拿不到
+  void nextTick(() => {
+    nameInput.value?.focus();
+  });
+}
+
 function resetForm() {
   hydrateToken += 1;
   form.name = "";
-  form.category = "food";
+  form.category = defaultCategory();
   form.quantity = 1;
   form.productionDate = "";
   form.shelfLife = undefined;
@@ -161,6 +192,7 @@ async function hydrate(): Promise<void> {
   if (!targetId) {
     // 新增页复用同一个组件实例，从编辑页切过来时要清干净
     resetForm();
+    focusName();
     return;
   }
   const item = getItem(targetId);
@@ -413,6 +445,7 @@ onBeforeUnmount(releaseFormImageUrls);
         <div class="field">
           <span class="lbl">物品名称</span>
           <el-input
+            ref="nameInput"
             v-model="form.name"
             placeholder="如：维生素 C、护照、牛奶"
             maxlength="40"
@@ -424,6 +457,16 @@ onBeforeUnmount(releaseFormImageUrls);
           <div class="field grow">
             <span class="lbl">分类</span>
             <el-select v-model="form.category" placeholder="选择分类">
+              <!--
+                选中项只用 label 文本会丢掉颜色，这里自己渲染：色点跟分类色走。
+                内置分类的颜色可能被用户在分类管理里改过，所以取 categoryColorOf 而不是静态表。
+              -->
+              <template #label="{ label, value }">
+                <span class="option">
+                  <i :style="{ background: categoryColorOf(String(value)) }" />
+                  <span>{{ label }}</span>
+                </span>
+              </template>
               <el-option
                 v-for="option in categoryOptions"
                 :key="option.id"
@@ -776,9 +819,12 @@ onBeforeUnmount(releaseFormImageUrls);
 }
 
 .option i {
-  width: 8px;
-  height: 8px;
+  flex: none;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
+  /* 浅色分类压在浅底上也要有边界，深色模式下同样成立 */
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 12%);
 }
 
 /* ---- 有效期分区 ---- */
