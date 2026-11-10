@@ -27,7 +27,9 @@
 
 ## 2. 更新版本号
 
-1. 同步修改两处：`package.json` 的 `version`、`src-tauri/tauri.conf.json` 的 `version`。
+> 走 CI 发版时**不要**手工改版本号——release-please 的 release PR 会统一处理 `package.json`、`src-tauri/Cargo.toml`、`src-tauri/tauri.conf.json`。本节只适用于在本机直接打包、不经 CI 的情况。
+
+1. 同步修改两处：`package.json` 的 `version`、`src-tauri/tauri.conf.json` 的 `version`（`Cargo.toml` 的 crate 版本建议一起改，前端显示的版本读的是 `package.json`）。
 2. Android 的 `versionName` / `versionCode` 写在 `src-tauri/gen/android/app/tauri.properties`，该文件由 Tauri CLI 在构建时依据 `tauri.conf.json` 自动生成，**不要手工编辑**。
 3. 如果改动了 `identifier`（应用包名），必须同步 `src-tauri/gen/android` 下的工程配置；仅发版时通常不要动它。
 4. 确认 `src-tauri/tauri.conf.json` 的 `productName` 与期望的安装包名称一致。

@@ -12,7 +12,7 @@
 | 项 | 要求 |
 | --- | --- |
 | 仓库 | 项目已 `git init` 并推送到 <https://github.com/nickynull/JToolsBoxMobile>（默认分支 `main`） |
-| 权限 | 有仓库 Settings → Secrets 的配置权限；工作流需要 `contents: write` 才能创建 Release |
+| 权限 | 有仓库 Settings 的配置权限；工作流需要 `contents: write`（建 Release / 推 tag）与 `pull-requests: write`（release-please 开 PR）；仓库还需在 Actions 设置里允许 GitHub Actions 创建 PR |
 | 签名材料 | 能访问与历史版本**同一个**签名密钥库，否则用户无法覆盖升级 |
 | 忽略规则 | 确认 `src-tauri/gen/android/keystore.properties`、密钥库文件都未被跟踪（前者已被忽略） |
 
@@ -23,7 +23,9 @@
 ## 2. 整体流程
 
 ```
-推送 tag / 手动触发
+合并 release PR / 推 tag / 手动触发
+   ↓
+release-please 计算版本（仅 push 到 main 时）→ 打 tag、创建 Release
    ↓
 checkout 代码（不含任何密钥）
    ↓
@@ -33,7 +35,7 @@ checkout 代码（不含任何密钥）
    ↓
 npx tauri android build --apk --target aarch64
    ↓
-上传签名 APK 为 workflow artifact（可选：附加到 GitHub Release）
+校验签名 → 上传签名 APK 为 workflow artifact → 附加到 Release
 ```
 
 关键点：**密钥只在 runner 运行时还原，构建结束随 runner 销毁**，仓库里永远不出现。
@@ -74,7 +76,7 @@ base64 -w0 <密钥库文件> | xclip -selection clipboard
 
 ## 4. 工作流
 
-已落地在 [`.github/workflows/android-release.yml`](../.github/workflows/android-release.yml)：触发方式为推送 `v*` 标签或手动 `workflow_dispatch`，job 级权限 `contents: write`，整体流程与下面的模板一致，并额外做了三件事：
+已落地在 [`.github/workflows/android-release.yml`](../.github/workflows/android-release.yml)：与桌面端仓库同一套结构，分两个 job——`release_please`（仅在 push 到 `main` 时运行，算版本、开 release PR）与 `android`（`needs` 前者，构建签名包并附加到 Release）；权限为 `contents: write` + `pull-requests: write`。触发方式与取包见第 5 节。相比下面的模板额外做了三件事：
 
 | 额外步骤 | 作用 |
 | --- | --- |
@@ -168,11 +170,39 @@ jobs:
 
 ## 5. 触发与取包
 
-- 手动：仓库 `Actions → android-release → Run workflow`。
-- 自动：推送 `v*` 形式的 tag，例如 `v1.1.0`。发版前同步 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`、`src/core/version.ts` 的版本号，以及 `README.md` 里的当前版本与 APK 文件名；tag 必须打在**已包含工作流文件**的提交上，否则推送 tag 不会创建运行。
-- 构建结束后在该次 workflow 页面下载 artifact。下载后建议按 [本地发布指南](./local-release.md) 的签名校验步骤确认证书指纹与上一版一致，再分发。
+工作流与桌面端仓库（`nickynull/JToolsBox`）是同一套编排：`release_please` job 决定版本，`android` job 跟着构建。
 
-### 自动附加到 GitHub Release（可选）
+| 入口 | 条件 | 结果 |
+| --- | --- | --- |
+| 合并 release PR | push 到 `main`，release-please 判定 `release_created=true` | 打 tag、建 Release，同一次运行里构建 APK 并附加 |
+| 推 `v*` 标签 | 手动 `git tag v1.2.0 && git push origin v1.2.0` | 跳过 release-please，直接构建；Release 不存在则兜底创建 |
+| 手动 Run workflow | Actions 页面 | 只构建并产出 artifact，不改动 Release |
+
+### 日常发版
+
+1. 合并功能 PR。提交信息遵循 Conventional Commits：`feat:` 涨 minor、`fix:` 涨 patch，`chore:` / `docs:` 不单独发版。
+2. 等 `chore(main): release X.Y.Z` 这个 PR 出现，检查里面的 `CHANGELOG.md` 与版本号。
+3. 合并它，剩下全自动。
+4. 到 Releases 页确认 `JToolsBox-Mobile-<版本>-arm64.apk` 与 `.sha256` 已附上。
+
+### 前置设置
+
+仓库 `Settings → Actions → General` 需要勾选 *Allow GitHub Actions to create and approve pull requests*，否则 release-please 建不出 PR。workflow 里已声明 `contents: write` 与 `pull-requests: write`。
+
+### 版本号
+
+只在 `package.json` 里维护一份。release-please 依据 `release-please-config.json` 的 `extra-files` 同步 `src-tauri/Cargo.toml`（`$.package.version`）与 `src-tauri/tauri.conf.json`（`$.version`），`src/core/version.ts` 直接读取 `package.json` 的 `version`。`src-tauri/Cargo.lock` 里的版本不跟随更新，构建时 cargo 会自行修正，不影响产物。
+
+### 两个别踩的坑
+
+- **release-please 用 `GITHUB_TOKEN` 推的 tag 不会触发新的 workflow 运行**（GitHub 抑制 token 产生的连锁事件）。所以 `android` job 必须 `needs: release_please` 跟在同一个 run 里，不能改成靠 `push: tags` 去接。
+- tag 必须打在**已包含工作流文件**的提交上。历史上 `v1.0.0` 的 tag 早于 workflow 入库，推送后没创建任何运行。
+
+### 取包
+
+构建结束后在该次 workflow 页面下载 artifact（保留 30 天），Release 里则是长期附件。下载后建议按 [本地发布指南](./local-release.md) 的签名校验步骤确认证书指纹与上一版一致，再分发。
+
+### 备选：改用 tauri-action 的移动端支持
 
 `tauri-apps/tauri-action@v1` 提供实验性的 `mobile: android` 参数，可在构建后创建 Release 并上传 APK：
 
